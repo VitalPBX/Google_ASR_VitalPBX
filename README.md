@@ -47,47 +47,30 @@ confidence : A value between 0 and 1 indicating the probability of a correct rec
 In case of an unexpected error both these variables are set to '-1'.
 
 ## Examples<br>
-sample dialplan code for your extensions.conf
+First, for this example to work, you have to install Google TTS with VitalPBX:
+https://github.com/VitalPBX/Google_TTS_VitalPBX
 
 <pre>
+[cos-all](+)
 ;Simple speech recognition
 exten => *277,1,Answer()
+exten => *277,n,agi(googletts.agi,"After de beep say something in English, when done press the pound key.",en)
 exten => *277,n,agi(googleasr.agi,en-US)
 exten => *277,n,Verbose(1,The text you just said is: ${utterance})
 exten => *277,n,Verbose(1,The probability to be right is: ${confidence})
+exten => *277,n,agi(googletts.agi,"You said... " ${utterance},en)
 exten => *277,n,Hangup()
 
-;Speech recognition demo also using googletts.agi for text to speech synthesis:
-exten => *2770,1,Answer()
-exten => *2770,n,agi(googletts.agi,"Say something in English, when done press the pound key.",en)
-exten => *2770,n(record),agi(googleasr.agi,en-US)
-exten => *2770,n,Verbose(1,Script returned: ${confidence} , ${utterance})
-
-;Check the probability of a successful recognition:
-exten => *2770,n,GotoIf($["${confidence}" > "0.8"]?playback:retry)
-
-;Playback the text
-exten => *2770,n(playback),agi(googletts.agi,"The text you just said was...",en)
-exten => *2770,n,agi(googletts.agi,"${utterance}",en)
-exten => *2770,n,goto(end)
-
-;Retry in case speech recognition wasn't successful:
-exten => *2770,n(retry),agi(googletts.agi,"Can you please repeat more clearly?",en)
-exten => *2770,n,goto(record)
-
-exten => *2770,n(fail),agi(googletts.agi,"Failed to get speech data.",en)
-exten => *2770,n(end),Hangup()
-
 ;Voice dialing example
-exten => *2771,1,Answer()
-exten => *2771,n,agi(googletts.agi,"PLease say the number you want to dial.",en)
-exten => *2771,n(record),agi(googleasr.agi,en-US)
-exten => *2771,n,GotoIf($["${confidence}" > "0.8"]?success:retry)
+exten => *2770,1,Answer()
+exten => *2770,n,agi(googletts.agi,"PLease say the number you want to dial.",en)
+exten => *2770,n(record),agi(googleasr.agi,en-US)
+exten => *2770,n,GotoIf($["${confidence}" > "0.8"]?success:retry)
 
-exten => *2771,n(success),goto(${utterance},1)
+exten => *2770,n(success),goto(cos-all,${utterance},1)
 
-exten => *2771,n(retry),agi(googletts.agi,"Can you please repeat?",en)
-exten => *2771,n,goto(record)
+exten => *2770,n(retry),agi(googletts.agi,"Can you please repeat?",en)
+exten => *2770,n,goto(record)
 </pre>
 
 ## Supported Languages

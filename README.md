@@ -5,17 +5,28 @@ This script makes use of Google's Cloud Speech API in order to render speech
 to text and return it back to the dialplan as an asterisk channel variable.
 
 ## Requirements<br>
-Perl:          The Perl Programming Language<br>
-perl-libwww:   The World-Wide Web library for Perl<br>
-perl-libjson:  Module for manipulating JSON-formatted data<br>
-IO-Socket-SSL: Perl module that implements an interface to SSL sockets.<br>
-flac:          Free Lossless Audio Codec<br>
+Perl:               The Perl Programming Language<br>
+perl-libwww-perl:   The World-Wide Web library for Perl<br>
+perl-JSON:          Module for manipulating JSON-formatted data<br>
+perl-IO-Socket-SSL: Perl module that implements an interface to SSL sockets.<br>
 
 Cloud Speech API key from Google (https://cloud.google.com/speech).
 Internet access in order to contact Google and get the speech data.
 
 ## Installation<br>
-To install copy googleasr.agi to your agi-bin directory.
+Install dependencies
+<pre>
+[root@vitalpbx ~]# yum install -y perl perl-libwww-perl perl-JSON perl-IO-Socket-SSL 
+</pre>
+
+Copy googleasr.agi to your agi-bin directory.
+<pre>
+[root@vitalpbx ~]# cd /var/lib/asterisk/agi-bin/
+[root@vitalpbx ~]# wget https://github.com/VitalPBX/Google_ASR_VitalPBX/blob/master/googleasr.agi
+[root@vitalpbx ~]# chown asterisk:asterisk googleasr.agi
+[root@vitalpbx ~]# chmod +x googleasr.agi
+</pre>
+
 
 ## Usage<br>
 agi(googleasr.agi,[lang],[timeout],[intkey],[NOBEEP],[rtimeout],[speechContexts])
@@ -40,43 +51,43 @@ sample dialplan code for your extensions.conf
 
 <pre>
 ;Simple speech recognition
-exten => 1234,1,Answer()
-exten => 1234,n,agi(googleasr.agi,en-US)
-exten => 1234,n,Verbose(1,The text you just said is: ${utterance})
-exten => 1234,n,Verbose(1,The probability to be right is: ${confidence})
-exten => 1234,n,Hangup()
+exten => *277,1,Answer()
+exten => *277,n,agi(googleasr.agi,en-US)
+exten => *277,n,Verbose(1,The text you just said is: ${utterance})
+exten => *277,n,Verbose(1,The probability to be right is: ${confidence})
+exten => *277,n,Hangup()
 
 ;Speech recognition demo also using googletts.agi for text to speech synthesis:
-exten => 1235,1,Answer()
-exten => 1235,n,agi(googletts.agi,"Say something in English, when done press the pound key.",en)
-exten => 1235,n(record),agi(googleasr.agi,en-US)
-exten => 1235,n,Verbose(1,Script returned: ${confidence} , ${utterance})
+exten => *2770,1,Answer()
+exten => *2770,n,agi(googletts.agi,"Say something in English, when done press the pound key.",en)
+exten => *2770,n(record),agi(googleasr.agi,en-US)
+exten => *2770,n,Verbose(1,Script returned: ${confidence} , ${utterance})
 
 ;Check the probability of a successful recognition:
-exten => 1235,n,GotoIf($["${confidence}" > "0.8"]?playback:retry)
+exten => *2770,n,GotoIf($["${confidence}" > "0.8"]?playback:retry)
 
 ;Playback the text
-exten => 1235,n(playback),agi(googletts.agi,"The text you just said was...",en)
-exten => 1235,n,agi(googletts.agi,"${utterance}",en)
-exten => 1235,n,goto(end)
+exten => *2770,n(playback),agi(googletts.agi,"The text you just said was...",en)
+exten => *2770,n,agi(googletts.agi,"${utterance}",en)
+exten => *2770,n,goto(end)
 
 ;Retry in case speech recognition wasn't successful:
-exten => 1235,n(retry),agi(googletts.agi,"Can you please repeat more clearly?",en)
-exten => 1235,n,goto(record)
+exten => *2770,n(retry),agi(googletts.agi,"Can you please repeat more clearly?",en)
+exten => *2770,n,goto(record)
 
-exten => 1235,n(fail),agi(googletts.agi,"Failed to get speech data.",en)
-exten => 1235,n(end),Hangup()
+exten => *2770,n(fail),agi(googletts.agi,"Failed to get speech data.",en)
+exten => *2770,n(end),Hangup()
 
 ;Voice dialing example
-exten => 1236,1,Answer()
-exten => 1236,n,agi(googletts.agi,"PLease say the number you want to dial.",en)
-exten => 1236,n(record),agi(googleasr.agi,en-US)
-exten => 1236,n,GotoIf($["${confidence}" > "0.8"]?success:retry)
+exten => *2771,1,Answer()
+exten => *2771,n,agi(googletts.agi,"PLease say the number you want to dial.",en)
+exten => *2771,n(record),agi(googleasr.agi,en-US)
+exten => *2771,n,GotoIf($["${confidence}" > "0.8"]?success:retry)
 
-exten => 1236,n(success),goto(${utterance},1)
+exten => *2771,n(success),goto(${utterance},1)
 
-exten => 1236,n(retry),agi(googletts.agi,"Can you please repeat?",en)
-exten => 1236,n,goto(record)
+exten => *2771,n(retry),agi(googletts.agi,"Can you please repeat?",en)
+exten => *2771,n,goto(record)
 </pre>
 
 ## Supported Languages

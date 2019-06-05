@@ -1,4 +1,4 @@
-Google Speech recognition in VitalPBX
+Google Speech Recognition in VitalPBX
 =====
 
 This script makes use of Google's Cloud Speech API in order to render speech

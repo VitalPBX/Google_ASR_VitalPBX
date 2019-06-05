@@ -1,0 +1,304 @@
+#!/usr/bin/env perl
+
+#
+# AGI script that renders speech to text using Google's Cloud Speech API.
+#
+# Copyright (C) 2011 - 2016, Lefteris Zafiris <zaf@fastmail.com>
+#
+# This program is free software, distributed under the terms of
+# the GNU General Public License Version 2. See the COPYING file
+# at the top of the source tree.
+#
+# -----
+# Usage
+# -----
+# agi(speech-recog.agi,[lang],[timeout],[intkey],[NOBEEP],[rtimeout],[speechContexts])
+# Records from the current channel until 2 seconds of silence are detected
+# (this can be set by the user by the 'timeout' argument, -1 for no timeout) or the
+# interrupt key (# by default) is pressed. If NOBEEP is set, no beep sound is played
+# back to the user to indicate the start of the recording. If 'rtimeout' is set, 
+# overwrite to the absolute recording timeout. 'SpeechContext' provides hints to 
+# favor specific words and phrases in the results. Usage: [Agamemnon,Midas]
+# The recorded sound is send over to Google speech recognition service and the
+# returned text string is assigned as the value of the channel variable 'utterance'.
+# The scripts sets the following channel variables:
+# utterance  : The generated text string.
+# confidence : A value between 0 and 1 indicating how 'confident' the recognition engine
+#     feels about the result. Values bigger than 0.95 usually mean that the
+#     resulted text is correct.
+#
+# User defined parameters:
+# Speech API key from Google:
+#	$key
+#
+# Default language:
+#	$language
+#
+# Default timeout:
+#	$timeout (value in seconds of silence before recording is stopped)
+#
+# Default interrupt key:
+#	$intkey (can be any digit from 0 to 9 or # and *, or a combination of them)
+#
+# Sample rate:
+#	$samplerate (value in Hz. 0 for automatic detection per channel/call, 16000 for
+#   use with wideband codecs, 8000 for traditional codecs.
+#
+# Profanity filter:
+#	$pro_filter ('false':disable, 'true': remove profanities)
+#
+
+use warnings;
+use strict;
+use File::Copy qw(move);
+use File::Temp qw(tempfile);
+use HTTP::Tiny;
+use JSON::Tiny qw(decode_json encode_json);
+use Encode qw(encode);
+use MIME::Base64;
+
+$| = 1;
+
+# ----------------------------- #
+#   User defined parameters:    #
+# ----------------------------- #
+# Speech API key                #
+my $key = "";
+
+# Default language              #
+my $language = "en-US";
+
+# Default max silence timeout   #
+my $timeout = 2;
+
+# Absolute Recording timeout    #
+my $abs_timeout = -1;
+
+# Default interrupt key         #
+my $intkey = "#";
+
+# Input audio sample rate       #
+# Leave blank to auto-detect    #
+my $samplerate = "";
+
+# Profanity filter              #
+my $pro_filter = "false";
+
+# Verbose debugging messages    #
+my $debug = 0;
+
+# ----------------------------- #
+
+my %AGI;
+my $format;
+my @result;
+my $silence;
+my $results    = 1;
+my $beep       = "BEEP";
+my $comp_level = -1;
+my $ua_timeout = 30;
+my $tmpdir     = "/tmp";
+my $url        = "https://speech.googleapis.com/v1/speech";
+my $phrases    = "";
+my @phrases    = [];
+
+# Store AGI input #
+($AGI{arg_1}, $AGI{arg_2}, $AGI{arg_3}, $AGI{arg_4}, $AGI{arg_5}, $AGI{arg_6}) = @ARGV;
+while (<STDIN>) {
+	chomp;
+	last if (!length);
+	$AGI{$1} = $2 if (/^agi_(\w+)\:\s+(.*)$/);
+}
+
+my $name = " -- $AGI{request}:";
+
+# Reset variables. #
+warn "$name Clearing channel variables.\n" if ($debug);
+my %response = (
+	utterance  => -1,
+	confidence => -1,
+);
+set_channel_vars(%response);
+
+# Abort if key is missing or required programs not found. #
+if (!$key) {
+	print "VERBOSE \"API key is missing. Aborting.\" 3\n";
+	checkresponse();
+	die "$name API key is missing. Aborting.\n";
+}
+my $flac = `/usr/bin/which flac`;
+die "$name flac is missing. Aborting.\n" if (!$flac);
+chomp($flac);
+warn "$name Found flac in: $flac\n" if ($debug);
+
+# Setting language, timeout, interrupt keys and BEEP indication #
+if (length($AGI{arg_1})) {
+	$language = $AGI{arg_1} if ($AGI{arg_1} =~ /^[a-z]{2}(-[a-zA-Z]{2,6})?$/);
+}
+
+if (length($AGI{arg_2})) {
+	if ($AGI{arg_2} == -1) {
+		$silence = "";
+	} elsif ($AGI{arg_2} =~ /^\d+$/) {
+		$silence = "s=$AGI{arg_2}";
+	} else {
+		$silence = "s=$timeout";
+	}
+} else {
+	$silence = "s=$timeout";
+}
+
+if (length($AGI{arg_3})) {
+	$intkey = "0123456789#*" if ($AGI{arg_3} eq "any");
+	$intkey = $AGI{arg_3} if ($AGI{arg_3} =~ /^[0-9*#]+$/);
+}
+
+if (length($AGI{arg_4})) {
+	$beep = "" if ($AGI{arg_4} eq "NOBEEP");
+}
+
+if (length($AGI{arg_5})) {
+	$abs_timeout = $AGI{arg_5};
+}
+
+if (length($AGI{arg_6})) {
+	$phrases = $AGI{arg_6};
+	$phrases = substr($phrases,1,-1);
+	@phrases = split(',',$phrases);
+}
+
+# Answer channel if not already answered #
+warn "$name Checking channel status.\n" if ($debug);
+print "CHANNEL STATUS\n";
+@result = checkresponse();
+if ($result[0] == 4) {
+	warn "$name Answering channel.\n" if ($debug);
+	print "ANSWER\n";
+	@result = checkresponse();
+	if ($result[0] != 0) {
+		die "$name Failed to answer channel.\n";
+	}
+}
+
+# Setting recording file format according to sample rate. #
+if    (!$samplerate)         { ($format, $samplerate) = detect_format(); }
+elsif ($samplerate == 12000) { $format = "sln12"; }
+elsif ($samplerate == 16000) { $format = "sln16"; }
+elsif ($samplerate == 32000) { $format = "sln32"; }
+elsif ($samplerate == 44100) { $format = "sln44"; }
+elsif ($samplerate == 48000) { $format = "sln48"; }
+else                         { ($format, $samplerate) =  ("sln", 8000); }
+
+# Initialize User agent #
+my $http = HTTP::Tiny->new(
+	agent      => 'Asterisk AGI speech recognition script',
+	timeout    => $ua_timeout,
+	verify_SSL => 1,
+);
+
+# Handle interrupts #
+$SIG{'INT'} = \&int_handler;
+$SIG{'HUP'} = \&int_handler;
+
+# Record file #
+my ($fh, $tmpname) = tempfile("stt_XXXXXX", DIR => $tmpdir, UNLINK => 1);
+print "RECORD FILE $tmpname $format \"$intkey\" \"$abs_timeout\" $beep \"$silence\"\n";
+@result = checkresponse();
+die "$name Failed to record file, aborting...\n" if ($result[0] == -1);
+
+if ($debug) {
+	warn "$name Recording Format: $format, Rate: $samplerate Hz, ",
+		"Language: $language, ", "$silence, Interrupt keys: $intkey\n";
+}
+
+# Encode audio data to flac #
+system($flac, $comp_level, "--totally-silent", "--channels=1", "--sign=signed", "--bps=16", "--endian=little",
+	"--force-raw-format", "--sample-rate=$samplerate", "$tmpname.$format") == 0 or die "$name $flac failed: $?\n";
+open($fh, "<", "$tmpname.flac") or die "Can't read file: $!";
+
+my $audio = do { local $/; <$fh> };
+close($fh);
+
+my %config = (
+	"encoding"         => "FLAC",
+	"sampleRateHertz"  => $samplerate,
+	"languageCode"     => $language,
+	"profanityFilter"  => $pro_filter,
+	"speechContexts"   => {"phrases" => \@phrases},
+);
+my %audio = ( "content" => encode_base64($audio, "") );
+
+my %json = (
+	"config" => \%config,
+	"audio"  => \%audio,
+);
+
+# Send audio data for analysis #
+my %headers =('Content-Type' => "application/json");
+my %options = ('headers' => \%headers, 'content' => encode_json(\%json));
+my $uaresponse = $http->request('POST', "$url:recognize?key=$key", \%options);
+
+warn "$name The response was:\n", $uaresponse->{'content'} if ($debug);
+if (!$uaresponse->{'success'}) {
+	print "VERBOSE \"Unable to get recognition data.\" 3\n";
+	checkresponse();
+	die "$name Unable to get recognition data.\n";
+}
+my $jdata = decode_json($uaresponse->{'content'});
+$response{utterance} = encode('utf8', $jdata->{"results"}[0]->{"alternatives"}[0]->{"transcript"});
+$response{confidence} = $jdata->{"results"}[0]->{"alternatives"}[0]->{"confidence"};
+
+set_channel_vars(%response);
+exit;
+
+sub set_channel_vars {
+	my %resp = @_;
+	foreach (keys %resp) {
+		warn "$name Setting variable: $_ = $response{$_}\n" if ($debug);
+		print "SET VARIABLE \"$_\" \"$response{$_}\"\n";
+		checkresponse();
+	}
+}
+
+sub checkresponse {
+	my $input = <STDIN>;
+	my @values;
+
+	chomp $input;
+	if ($input =~ /^200 result=(-?\d+)\s?(.*)$/) {
+		warn "$name Command returned: $input\n" if ($debug);
+		@values = ("$1", "$2");
+	} else {
+		$input .= <STDIN> if ($input =~ /^520-Invalid/);
+		warn "$name Unexpected result: $input\n";
+		@values = (-1, -1);
+	}
+	return @values;
+}
+
+sub detect_format {
+# Detect the sound format used #
+	my @format;
+	print "GET FULL VARIABLE \${CHANNEL(audionativeformat)}\n";
+	my @reply = checkresponse();
+	for ($reply[1]) {
+		if    (/(silk|sln)12/)                    { @format = ("sln12", 12000); }
+		elsif (/(speex|slin|silk)16|g722|siren7/) { @format = ("sln16", 16000); }
+		elsif (/(speex|slin|celt)32|siren14/)     { @format = ("sln32", 32000); }
+		elsif (/(celt|slin)44/)                   { @format = ("sln44", 44100); }
+		elsif (/(celt|slin)48/)                   { @format = ("sln48", 48000); }
+		else                                      { @format = ("sln",    8000); }
+	}
+	return @format;
+}
+
+sub int_handler {
+	die "$name Interrupt signal received, terminating...\n";
+}
+
+END {
+	if ($tmpname) {
+		warn "$name Cleaning temp files.\n" if ($debug);
+		unlink glob "$tmpname.*";
+	}
+}

@@ -186,5 +186,8 @@ you have HTTP::Tiny and JSON::Tiny installed.
 The speech-recog script for asterisk is distributed under the GNU General Public
 License v2. See COPYING for details.
 
+## VitalPBX Integrator<br>
+Rodrigo Cuadra (rcuadra@vitalpbx.com)
+
 ## Homepage<br>
 https://github.com/VitalPBX/Google_ASR_VitalPBX

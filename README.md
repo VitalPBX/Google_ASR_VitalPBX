@@ -5,22 +5,20 @@ This script makes use of Google's Cloud Speech API in order to render speech
 to text and return it back to the dialplan as an asterisk channel variable.
 
 ## Requirements<br>
-Perl          The Perl Programming Language<br>
-perl-libwww   The World-Wide Web library for Perl<br>
-perl-libjson  Module for manipulating JSON-formatted data<br>
-IO-Socket-SSL Perl module that implements an interface to SSL sockets.<br>
-flac          Free Lossless Audio Codec<br>
+Perl:          The Perl Programming Language<br>
+perl-libwww:   The World-Wide Web library for Perl<br>
+perl-libjson:  Module for manipulating JSON-formatted data<br>
+IO-Socket-SSL: Perl module that implements an interface to SSL sockets.<br>
+flac:          Free Lossless Audio Codec<br>
 
 Cloud Speech API key from Google (https://cloud.google.com/speech).
 Internet access in order to contact Google and get the speech data.
 
 ## Installation<br>
-To install copy speech-recog.agi to your agi-bin directory.
-Usually this is /var/lib/asterisk/agi-bin/
-To make sure check your /etc/asterisk/asterisk.conf file
+To install copy googleasr.agi to your agi-bin directory.
 
 ## Usage<br>
-agi(speech-recog.agi,[lang],[timeout],[intkey],[NOBEEP],[rtimeout],[speechContexts])
+agi(googleasr.agi,[lang],[timeout],[intkey],[NOBEEP],[rtimeout],[speechContexts])
 Records from the current channel until 2 seconds of silence are detected
 (this can be set by the user by the 'timeout' argument, -1 for no timeout) or the
 interrupt key (# by default) is pressed. If NOBEEP is set, no beep sound is played
@@ -43,7 +41,7 @@ sample dialplan code for your extensions.conf
 <pre>
 ;Simple speech recognition
 exten => 1234,1,Answer()
-exten => 1234,n,agi(speech-recog.agi,en-US)
+exten => 1234,n,agi(googleasr.agi,en-US)
 exten => 1234,n,Verbose(1,The text you just said is: ${utterance})
 exten => 1234,n,Verbose(1,The probability to be right is: ${confidence})
 exten => 1234,n,Hangup()
@@ -51,7 +49,7 @@ exten => 1234,n,Hangup()
 ;Speech recognition demo also using googletts.agi for text to speech synthesis:
 exten => 1235,1,Answer()
 exten => 1235,n,agi(googletts.agi,"Say something in English, when done press the pound key.",en)
-exten => 1235,n(record),agi(speech-recog.agi,en-US)
+exten => 1235,n(record),agi(googleasr.agi,en-US)
 exten => 1235,n,Verbose(1,Script returned: ${confidence} , ${utterance})
 
 ;Check the probability of a successful recognition:
@@ -72,7 +70,7 @@ exten => 1235,n(end),Hangup()
 ;Voice dialing example
 exten => 1236,1,Answer()
 exten => 1236,n,agi(googletts.agi,"PLease say the number you want to dial.",en)
-exten => 1236,n(record),agi(speech-recog.agi,en-US)
+exten => 1236,n(record),agi(googleasr.agi,en-US)
 exten => 1236,n,GotoIf($["${confidence}" > "0.8"]?success:retry)
 
 exten => 1236,n(success),goto(${utterance},1)

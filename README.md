@@ -53,6 +53,7 @@ https://github.com/VitalPBX/Google_TTS_VitalPBX
 <pre>
 [cos-all](+)
 ;Simple speech recognition
+
 exten => *277,1,Answer()
 exten => *277,n,agi(googletts.agi,"After de beep say something in English, when done press the pound key.",en)
 exten => *277,n,agi(googleasr.agi,en-US)
@@ -62,13 +63,12 @@ exten => *277,n,agi(googletts.agi,"You said... " ${utterance},en)
 exten => *277,n,Hangup()
 
 ;Voice dialing example
+
 exten => *2770,1,Answer()
 exten => *2770,n,agi(googletts.agi,"PLease say the number you want to dial.",en)
 exten => *2770,n(record),agi(googleasr.agi,en-US)
 exten => *2770,n,GotoIf($["${confidence}" > "0.8"]?success:retry)
-
 exten => *2770,n(success),goto(cos-all,${utterance},1)
-
 exten => *2770,n(retry),agi(googletts.agi,"Can you please repeat?",en)
 exten => *2770,n,goto(record)
 </pre>

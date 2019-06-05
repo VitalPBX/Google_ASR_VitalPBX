@@ -27,6 +27,14 @@ Copy googleasr.agi to your agi-bin directory.
 [root@vitalpbx ~]# chmod +x googleasr.agi
 </pre>
 
+Edit the googleasr.agi file and add the API key obtained in Google. Line 66.
+
+<pre>
+[root@vitalpbx ~]# cd /var/lib/asterisk/agi-bin/
+[root@vitalpbx ~]# vi googleasr.agi
+my $key = ""
+Insert the key between the double quotes.
+</pre>
 
 ## Usage<br>
 agi(googleasr.agi,[lang],[timeout],[intkey],[NOBEEP],[rtimeout],[speechContexts])

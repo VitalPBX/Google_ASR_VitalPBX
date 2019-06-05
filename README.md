@@ -27,6 +27,14 @@ Copy googleasr.agi to your agi-bin directory.
 [root@vitalpbx ~]# chmod +x googleasr.agi
 </pre>
 
+In order to use the Speech Recognition service it is necessary to obtain an API Key.
+
+To obtain the API key go to google developer site (It is necessary to register, Google gives a trial of 1 year with US$ 300.00 credit)
+
+https://console.developers.google.com
+
+Go to Credentials/Create credentials and copy the Key.
+
 Edit the googleasr.agi file and add the API key obtained in Google. Line 66.
 
 <pre>

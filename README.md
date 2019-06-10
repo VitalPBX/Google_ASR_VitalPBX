@@ -1,5 +1,6 @@
 Google Speech Recognition in VitalPBX
 =====
+[![VitalPBX Google ASR](http://img.youtube.com/vi/QRCGawA45fE/0.jpg)](http://www.youtube.com/watch?v=QRCGawA45fE)
 
 This script makes use of Google's Cloud Speech API in order to render speech
 to text and return it back to the dialplan as an asterisk channel variable.

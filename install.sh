@@ -9,7 +9,7 @@ echo -e "\n"
 echo -e "************************************************************"
 echo -e "*      Welcome to the VitalPBX Google ASR Integration      *"
 echo -e "************************************************************"
-yum install -y perl perl-libwww-perl perl-JSON perl-IO-Socket-SSL
+yum install -y perl perl-libwww-perl perl-JSON perl-IO-Socket-SSL mpg123
 cd /var/lib/asterisk/agi-bin/
 wget https://raw.githubusercontent.com/VitalPBX/Google_ASR_VitalPBX/master/googleasr.agi
 chown asterisk:asterisk googleasr.agi

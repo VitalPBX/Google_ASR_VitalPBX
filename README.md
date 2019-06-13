@@ -17,7 +17,7 @@ Internet access in order to contact Google and get the speech data.
 ## Installation<br>
 Install dependencies
 <pre>
-[root@vitalpbx ~]# yum install -y perl perl-libwww-perl perl-JSON perl-IO-Socket-SSL 
+[root@vitalpbx ~]# yum install -y perl perl-libwww-perl perl-JSON perl-IO-Socket-SSL flac
 </pre>
 
 Copy googleasr.agi to your agi-bin directory.

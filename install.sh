@@ -14,7 +14,7 @@ cd /var/lib/asterisk/agi-bin/
 wget https://raw.githubusercontent.com/VitalPBX/Google_ASR_VitalPBX/master/googleasr.agi
 chown asterisk:asterisk googleasr.agi
 chmod +x googleasr.agi
-cd /etc/asterisk/ombutel
+cd /etc/asterisk/vitalpbx
 wget https://raw.githubusercontent.com/VitalPBX/Google_ASR_VitalPBX/master/extensions__60-google_asr.conf
 asterisk -rx"dialplan reload"
 echo -e "\n"
